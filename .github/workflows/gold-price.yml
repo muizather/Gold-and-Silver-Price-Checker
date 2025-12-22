@@ -26,6 +26,15 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Check Environment Secrets
+      run: |
+        if [ -z "${{ secrets.GOLDAPI_KEY }}" ]; then
+          echo "::error::GOLDAPI_KEY secret is not set! This is likely because the 'Gold And Silver' Environment is restricted to specific branches (e.g., 'main') and this run is on a different branch."
+          exit 1
+        else
+          echo "GOLDAPI_KEY is present."
+        fi
+
     - name: Run cron job
       env:
         GOLDAPI_KEY: ${{ secrets.GOLDAPI_KEY }}
