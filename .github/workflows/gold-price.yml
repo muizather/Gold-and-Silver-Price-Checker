@@ -11,6 +11,7 @@ on:
 jobs:
   update-prices:
     runs-on: ubuntu-latest
+    environment: 'Gold And Silver'
 
     steps:
     - name: Checkout repository
@@ -25,8 +26,18 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Check Environment Secrets
+      run: |
+        if [ -z "${{ secrets.GOLDAPI_KEY }}" ] && [ -z "${{ secrets.GOLDAPI_KEYY }}" ]; then
+          echo "::error::No GOLDAPI_KEY or GOLDAPI_KEYY secrets found! This is likely because the 'Gold And Silver' Environment is restricted to specific branches (e.g., 'main') and this run is on a different branch."
+          exit 1
+        else
+          echo "At least one API key is present."
+        fi
+
     - name: Run cron job
       env:
         GOLDAPI_KEY: ${{ secrets.GOLDAPI_KEY }}
+        GOLDAPI_KEYY: ${{ secrets.GOLDAPI_KEYY }}
         GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
       run: node cron-job.js
