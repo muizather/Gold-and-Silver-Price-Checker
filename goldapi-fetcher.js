@@ -3,23 +3,49 @@ import axios from 'axios';
 import { calculateTolaPrices } from './fetch-prices.js';
 
 // GoldAPI.io configuration
-const GOLDAPI_KEY = process.env.GOLDAPI_KEY;
 const GOLDAPI_BASE_URL = 'https://www.goldapi.io/api';
+
+/**
+ * Get a random API key from available environment variables
+ * Looks for any env var starting with 'GOLDAPI_KEY'
+ */
+function getRandomApiKey() {
+  const keys = Object.keys(process.env)
+    .filter(key => key.startsWith('GOLDAPI_KEY'))
+    .map(key => process.env[key])
+    .filter(val => val && val.trim() !== ''); // Ensure value is not empty
+
+  if (keys.length === 0) {
+    return null;
+  }
+
+  const randomIndex = Math.floor(Math.random() * keys.length);
+  const selectedKey = keys[randomIndex];
+
+  // Log masked key for debugging
+  const maskedKey = selectedKey.substring(0, 4) + '...' + selectedKey.substring(selectedKey.length - 4);
+  console.log(`Using API Key: ${maskedKey} (pool size: ${keys.length})`);
+
+  return selectedKey;
+}
+
+// Select a key once per execution
+const SELECTED_API_KEY = getRandomApiKey();
 
 /**
  * Fetch gold price from GoldAPI.io
  * Format: GET https://www.goldapi.io/api/XAU/{currency}
  */
 async function fetchGoldPrice(currency = 'PKR') {
-  if (!GOLDAPI_KEY) {
-    console.error('Error: GOLDAPI_KEY environment variable is not set.');
+  if (!SELECTED_API_KEY) {
+    console.error('Error: No GOLDAPI_KEY environment variables found.');
     return null;
   }
 
   try {
     const response = await axios.get(`${GOLDAPI_BASE_URL}/XAU/${currency}`, {
       headers: {
-        'x-access-token': GOLDAPI_KEY,
+        'x-access-token': SELECTED_API_KEY,
         'Content-Type': 'application/json'
       },
       timeout: 10000
@@ -37,15 +63,15 @@ async function fetchGoldPrice(currency = 'PKR') {
  * Format: GET https://www.goldapi.io/api/XAG/{currency}
  */
 async function fetchSilverPrice(currency = 'PKR') {
-  if (!GOLDAPI_KEY) {
-    console.error('Error: GOLDAPI_KEY environment variable is not set.');
+  if (!SELECTED_API_KEY) {
+    console.error('Error: No GOLDAPI_KEY environment variables found.');
     return null;
   }
 
   try {
     const response = await axios.get(`${GOLDAPI_BASE_URL}/XAG/${currency}`, {
       headers: {
-        'x-access-token': GOLDAPI_KEY,
+        'x-access-token': SELECTED_API_KEY,
         'Content-Type': 'application/json'
       },
       timeout: 10000
