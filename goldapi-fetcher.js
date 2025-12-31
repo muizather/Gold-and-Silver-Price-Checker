@@ -6,46 +6,51 @@ import { calculateTolaPrices } from './fetch-prices.js';
 const GOLDAPI_BASE_URL = 'https://www.goldapi.io/api';
 
 /**
- * Get a random API key from available environment variables
+ * Get all available API keys from environment variables
  * Looks for any env var starting with 'GOLDAPI_KEY'
+ * @returns {string[]} Array of API keys
  */
-function getRandomApiKey() {
+function getAvailableApiKeys() {
   const keys = Object.keys(process.env)
     .filter(key => key.startsWith('GOLDAPI_KEY'))
     .map(key => process.env[key])
     .filter(val => val && val.trim() !== ''); // Ensure value is not empty
 
-  if (keys.length === 0) {
-    return null;
-  }
-
-  const randomIndex = Math.floor(Math.random() * keys.length);
-  const selectedKey = keys[randomIndex];
-
-  // Log masked key for debugging
-  const maskedKey = selectedKey.substring(0, 4) + '...' + selectedKey.substring(selectedKey.length - 4);
-  console.log(`Using API Key: ${maskedKey} (pool size: ${keys.length})`);
-
-  return selectedKey;
+  return keys;
 }
 
-// Select a key once per execution
-const SELECTED_API_KEY = getRandomApiKey();
+/**
+ * Shuffle array in place
+ * @param {Array} array
+ * @returns {Array} Shuffled array
+ */
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
 
 /**
  * Fetch gold price from GoldAPI.io
  * Format: GET https://www.goldapi.io/api/XAU/{currency}
+ * @param {string} currency
+ * @param {string} apiKey - Optional specific key to use
  */
-async function fetchGoldPrice(currency = 'PKR') {
-  if (!SELECTED_API_KEY) {
+async function fetchGoldPrice(currency = 'PKR', apiKey = null) {
+  // If no specific key provided, pick a random one (legacy behavior)
+  const keyToUse = apiKey || shuffleArray(getAvailableApiKeys())[0];
+
+  if (!keyToUse) {
     console.error('Error: No GOLDAPI_KEY environment variables found.');
-    return null;
+    throw new Error('No API keys available');
   }
 
   try {
     const response = await axios.get(`${GOLDAPI_BASE_URL}/XAU/${currency}`, {
       headers: {
-        'x-access-token': SELECTED_API_KEY,
+        'x-access-token': keyToUse,
         'Content-Type': 'application/json'
       },
       timeout: 10000
@@ -53,25 +58,30 @@ async function fetchGoldPrice(currency = 'PKR') {
 
     return response.data;
   } catch (error) {
-    console.error('Error fetching gold price:', error.response?.data || error.message);
-    return null;
+    // Propagate error for the caller to handle (e.g., retry logic)
+    throw error;
   }
 }
 
 /**
  * Fetch silver price from GoldAPI.io
  * Format: GET https://www.goldapi.io/api/XAG/{currency}
+ * @param {string} currency
+ * @param {string} apiKey - Optional specific key to use
  */
-async function fetchSilverPrice(currency = 'PKR') {
-  if (!SELECTED_API_KEY) {
+async function fetchSilverPrice(currency = 'PKR', apiKey = null) {
+  // If no specific key provided, pick a random one (legacy behavior)
+  const keyToUse = apiKey || shuffleArray(getAvailableApiKeys())[0];
+
+  if (!keyToUse) {
     console.error('Error: No GOLDAPI_KEY environment variables found.');
-    return null;
+    throw new Error('No API keys available');
   }
 
   try {
     const response = await axios.get(`${GOLDAPI_BASE_URL}/XAG/${currency}`, {
       headers: {
-        'x-access-token': SELECTED_API_KEY,
+        'x-access-token': keyToUse,
         'Content-Type': 'application/json'
       },
       timeout: 10000
@@ -79,8 +89,8 @@ async function fetchSilverPrice(currency = 'PKR') {
 
     return response.data;
   } catch (error) {
-    console.error('Error fetching silver price:', error.response?.data || error.message);
-    return null;
+    // Propagate error for the caller to handle (e.g., retry logic)
+    throw error;
   }
 }
 
@@ -102,21 +112,69 @@ async function getUSDtoPKR() {
 }
 
 /**
+ * Helper to check if error is a quota error
+ */
+function isQuotaError(error) {
+  const data = error.response?.data;
+  if (data && data.error && typeof data.error === 'string' && data.error.includes('quota exceeded')) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Fetch both gold and silver prices from GoldAPI.io
  * Returns prices in PKR per gram (gold) and PKR per kg (silver)
  * Uses USD prices and converts to PKR (PKR is not available in GoldAPI.io)
  *
- * API Calls: 2 (one for gold, one for silver)
+ * Implements retry logic with key rotation on quota failure.
  */
 async function fetchPricesFromGoldAPI() {
   console.log('Fetching prices from GoldAPI.io (USD) and converting to PKR...\n');
 
-  // Fetch USD prices directly (PKR is not available)
-  const goldData = await fetchGoldPrice('USD');
-  const silverData = await fetchSilverPrice('USD');
+  // Get all keys and randomize order
+  const keys = shuffleArray(getAvailableApiKeys());
 
-  if (!goldData || goldData.error || !silverData || silverData.error) {
-    console.error('Failed to fetch prices from GoldAPI.io');
+  if (keys.length === 0) {
+    console.error('No API keys configured!');
+    return null;
+  }
+
+  let goldData = null;
+  let silverData = null;
+  let success = false;
+
+  // Try keys one by one
+  for (const key of keys) {
+    const maskedKey = key.substring(0, 4) + '...' + key.substring(key.length - 4);
+    console.log(`Attempting to fetch with key: ${maskedKey}`);
+
+    try {
+      // Fetch USD prices directly (PKR is not available)
+      // Must use the SAME key for both calls to ensure consistency/validity
+      goldData = await fetchGoldPrice('USD', key);
+      silverData = await fetchSilverPrice('USD', key);
+
+      if (goldData && !goldData.error && silverData && !silverData.error) {
+        success = true;
+        console.log(`Successfully fetched prices using key: ${maskedKey}`);
+        break; // Exit loop on success
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data || error.message;
+      console.error(`Error with key ${maskedKey}:`, errorMsg);
+
+      // Continue to next key
+      if (isQuotaError(error)) {
+        console.log('Quota exceeded for this key. Switching to next key...');
+      } else {
+        console.log('Request failed. Switching to next key...');
+      }
+    }
+  }
+
+  if (!success) {
+    console.error('Failed to fetch prices with all available keys.');
     return null;
   }
 
