@@ -7,14 +7,38 @@
  */
 
 import 'dotenv/config';
-import { fetchAndSend } from './google-chat-sender.js';
+import { fetchPricesFromGoldAPI } from './goldapi-fetcher.js';
+import { calculateTolaPrices } from './fetch-prices.js';
+import { updateHistory } from './history-manager.js';
+import { sendUpdateLink } from './google-chat-sender.js';
 
-// Run the fetch and send function
-fetchAndSend()
-  .then(() => {
+async function run() {
+  try {
+    // 1. Fetch Prices
+    console.log('Fetching prices...');
+    const prices = await fetchPricesFromGoldAPI();
+
+    if (!prices) {
+      console.error('Failed to fetch prices.');
+      process.exit(1);
+    }
+
+    // 2. Calculate Tola Prices (needed for history)
+    const calculated = calculateTolaPrices(prices.gold, prices.silver);
+
+    // 3. Update History File
+    console.log('Updating history...');
+    await updateHistory(calculated);
+
+    // 4. Send Link to Chat (Short message)
+    console.log('Notifying chat...');
+    await sendUpdateLink();
+
     process.exit(0);
-  })
-  .catch((error) => {
+  } catch (error) {
     console.error('Error in cron job:', error);
     process.exit(1);
-  });
+  }
+}
+
+run();

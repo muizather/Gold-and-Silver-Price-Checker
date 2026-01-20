@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gold & Silver Price Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.1/dist/chartjs-adapter-moment.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #111827;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-item {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #111827;
+        }
+        .gold-text { color: #d97706; }
+        .silver-text { color: #4b5563; }
+        .timestamp {
+            text-align: center;
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 10px;
+        }
+        canvas {
+            width: 100% !important;
+            height: 400px !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gold & Silver Price Tracker</h1>
+
+        <!-- Latest Stats -->
+        <div class="stats-grid" id="latestStats">
+            <div class="card stat-item">
+                <div class="stat-label">Loading stats...</div>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="card">
+            <canvas id="priceChart"></canvas>
+        </div>
+
+        <div class="timestamp" id="lastUpdated"></div>
+    </div>
+
+    <script>
+        async function loadData() {
+            try {
+                const response = await fetch('prices.json');
+                const data = await response.json();
+
+                if (!data || data.length === 0) {
+                    document.getElementById('latestStats').innerHTML = '<div class="stat-item">No data available yet.</div>';
+                    return;
+                }
+
+                // Sort by date just in case
+                data.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                const latest = data[data.length - 1];
+                updateStats(latest);
+                renderChart(data);
+
+                const date = new Date(latest.date);
+                document.getElementById('lastUpdated').textContent = `Last Updated: ${date.toLocaleString()}`;
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('latestStats').innerHTML = '<div class="stat-item">Error loading data.</div>';
+            }
+        }
+
+        function updateStats(data) {
+            const container = document.getElementById('latestStats');
+            container.innerHTML = `
+                <div class="card stat-item">
+                    <div class="stat-label">Gold / Tola</div>
+                    <div class="stat-value gold-text">${formatCurrency(data.gold.perTola)}</div>
+                </div>
+                <div class="card stat-item">
+                    <div class="stat-label">Gold / Gram</div>
+                    <div class="stat-value gold-text">${formatCurrency(data.gold.perGram)}</div>
+                </div>
+                <div class="card stat-item">
+                    <div class="stat-label">Silver / Tola</div>
+                    <div class="stat-value silver-text">${formatCurrency(data.silver.perTola)}</div>
+                </div>
+                <div class="card stat-item">
+                    <div class="stat-label">Ratio</div>
+                    <div class="stat-value">${data.ratio.toFixed(2)}</div>
+                </div>
+            `;
+        }
+
+        function formatCurrency(val) {
+            return new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR' }).format(val);
+        }
+
+        function renderChart(data) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Gold (Per Tola)',
+                            data: data.map(d => ({ x: d.date, y: d.gold.perTola })),
+                            borderColor: '#d97706',
+                            backgroundColor: 'rgba(217, 119, 6, 0.1)',
+                            yAxisID: 'y',
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Silver (Per Tola)',
+                            data: data.map(d => ({ x: d.date, y: d.silver.perTola })),
+                            borderColor: '#4b5563',
+                            backgroundColor: 'rgba(75, 85, 99, 0.1)',
+                            yAxisID: 'y1',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Gold Price (PKR)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            title: {
+                                display: true,
+                                text: 'Silver Price (PKR)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        loadData();
+    </script>
+</body>
+</html>

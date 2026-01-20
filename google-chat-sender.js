@@ -1,38 +1,25 @@
 import 'dotenv/config';
 import axios from 'axios';
-import { fetchPricesFromGoldAPI, formatPriceMessage } from './goldapi-fetcher.js';
 
 // Google Chat Webhook URL - Loaded from .env file
 const GOOGLE_CHAT_WEBHOOK_URL = process.env.GOOGLE_CHAT_WEBHOOK_URL || '';
+// GitHub Pages URL - Replace with actual URL or use env var
+const GITHUB_PAGES_URL = process.env.GITHUB_PAGES_URL || 'https://muizather.github.io/Gold-and-Silver-Price-Checker/';
 
 /**
  * Send message to Google Chat via webhook
- *
- * To set up webhook:
- * 1. Open Google Chat
- * 2. Go to the space where you want to receive messages
- * 3. Click on the space name > Manage webhooks
- * 4. Add a webhook and copy the URL
- * 5. Set GOOGLE_CHAT_WEBHOOK_URL environment variable
  */
 async function sendToGoogleChat(message) {
   if (!GOOGLE_CHAT_WEBHOOK_URL) {
     console.error('Google Chat webhook URL not configured!');
-    console.log('Please set GOOGLE_CHAT_WEBHOOK_URL environment variable');
-    console.log('Or pass it as: GOOGLE_CHAT_WEBHOOK_URL=your_url node google-chat-sender.js');
     return false;
   }
 
   try {
-    // Google Chat webhook accepts simple text or card format
-    const payload = {
-      text: message
-    };
+    const payload = { text: message };
 
-    const response = await axios.post(GOOGLE_CHAT_WEBHOOK_URL, payload, {
-      headers: {
-        'Content-Type': 'application/json'
-      },
+    await axios.post(GOOGLE_CHAT_WEBHOOK_URL, payload, {
+      headers: { 'Content-Type': 'application/json' },
       timeout: 10000
     });
 
@@ -45,41 +32,24 @@ async function sendToGoogleChat(message) {
 }
 
 /**
- * Fetch prices and send to Google Chat
+ * Send the updated graph link to Google Chat
  */
-async function fetchAndSend() {
-  console.log('=== Fetching Prices and Sending to Google Chat ===\n');
+async function sendUpdateLink() {
+  console.log('=== Sending Update Link to Google Chat ===\n');
 
-  // Fetch prices from GoldAPI.io
-  const prices = await fetchPricesFromGoldAPI();
+  const message = `🏅 *Gold & Silver Prices Updated*
 
-  if (!prices) {
-    console.error('Failed to fetch prices. Cannot send message.');
-    return false;
-  }
+📊 View the latest chart and stats here:
+${GITHUB_PAGES_URL}
 
-  // Format message
-  const message = formatPriceMessage(prices.gold, prices.silver, prices.source);
+(Please pin this link in the group for easy access)`;
 
-  console.log('\n=== Message to be sent ===');
-  console.log(message);
-  console.log('\n');
-
-  // Send to Google Chat
-  const sent = await sendToGoogleChat(message);
-
-  if (sent) {
-    console.log('✓ Successfully sent price update to Google Chat');
-    return true;
-  } else {
-    console.error('✗ Failed to send message to Google Chat');
-    return false;
-  }
+  return await sendToGoogleChat(message);
 }
 
 // Run if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  fetchAndSend().catch(console.error);
+  sendUpdateLink().catch(console.error);
 }
 
-export { sendToGoogleChat, fetchAndSend };
+export { sendToGoogleChat, sendUpdateLink };
