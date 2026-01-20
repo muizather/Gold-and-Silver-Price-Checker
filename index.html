@@ -63,7 +63,15 @@
         }
         canvas {
             width: 100% !important;
-            height: 400px !important;
+            height: 300px !important;
+        }
+        h2 {
+            font-size: 1.25rem;
+            color: #374151;
+            margin-bottom: 15px;
+            margin-top: 0;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 10px;
         }
     </style>
 </head>
@@ -78,9 +86,16 @@
             </div>
         </div>
 
-        <!-- Chart -->
+        <!-- Gold Chart -->
         <div class="card">
-            <canvas id="priceChart"></canvas>
+            <h2>Gold Price History (Per Tola)</h2>
+            <canvas id="goldChart"></canvas>
+        </div>
+
+        <!-- Silver Chart -->
+        <div class="card">
+            <h2>Silver Price History (Per Tola)</h2>
+            <canvas id="silverChart"></canvas>
         </div>
 
         <div class="timestamp" id="lastUpdated"></div>
@@ -102,7 +117,8 @@
 
                 const latest = data[data.length - 1];
                 updateStats(latest);
-                renderChart(data);
+                renderGoldChart(data);
+                renderSilverChart(data);
 
                 const date = new Date(latest.date);
                 document.getElementById('lastUpdated').textContent = `Last Updated: ${date.toLocaleString()}`;
@@ -138,72 +154,106 @@
             return new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR' }).format(val);
         }
 
-        function renderChart(data) {
-            const ctx = document.getElementById('priceChart').getContext('2d');
+        function renderGoldChart(data) {
+            const ctx = document.getElementById('goldChart').getContext('2d');
 
             new Chart(ctx, {
                 type: 'line',
                 data: {
-                    datasets: [
-                        {
-                            label: 'Gold (Per Tola)',
-                            data: data.map(d => ({ x: d.date, y: d.gold.perTola })),
-                            borderColor: '#d97706',
-                            backgroundColor: 'rgba(217, 119, 6, 0.1)',
-                            yAxisID: 'y',
-                            tension: 0.1
-                        },
-                        {
-                            label: 'Silver (Per Tola)',
-                            data: data.map(d => ({ x: d.date, y: d.silver.perTola })),
-                            borderColor: '#4b5563',
-                            backgroundColor: 'rgba(75, 85, 99, 0.1)',
-                            yAxisID: 'y1',
-                            tension: 0.1
-                        }
-                    ]
+                    datasets: [{
+                        label: 'Gold (PKR per Tola)',
+                        data: data.map(d => ({ x: d.date, y: d.gold.perTola })),
+                        borderColor: '#d97706',
+                        backgroundColor: 'rgba(217, 119, 6, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3
+                    }]
                 },
-                options: {
-                    responsive: true,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false,
+                options: getChartOptions('Gold Price (PKR)')
+            });
+        }
+
+        function renderSilverChart(data) {
+            const ctx = document.getElementById('silverChart').getContext('2d');
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Silver (PKR per Tola)',
+                        data: data.map(d => ({ x: d.date, y: d.silver.perTola })),
+                        borderColor: '#4b5563',
+                        backgroundColor: 'rgba(75, 85, 99, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: getChartOptions('Silver Price (PKR)')
+            });
+        }
+
+        function getChartOptions(yAxisLabel) {
+            return {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        display: false
                     },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'day'
-                            },
-                            title: {
-                                display: true,
-                                text: 'Date'
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR' }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'day',
+                            displayFormats: {
+                                day: 'MMM D'
                             }
                         },
-                        y: {
-                            type: 'linear',
+                        title: {
                             display: true,
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Gold Price (PKR)'
-                            }
+                            text: 'Date'
                         },
-                        y1: {
-                            type: 'linear',
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
                             display: true,
-                            position: 'right',
-                            grid: {
-                                drawOnChartArea: false,
-                            },
-                            title: {
-                                display: true,
-                                text: 'Silver Price (PKR)'
+                            text: yAxisLabel
+                        },
+                        ticks: {
+                            callback: function(value, index, values) {
+                                // Shorten large numbers (e.g. 400k)
+                                return value >= 1000 ? (value/1000).toFixed(0) + 'k' : value;
                             }
                         }
                     }
                 }
-            });
+            };
         }
 
         loadData();
