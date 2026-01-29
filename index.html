@@ -344,7 +344,12 @@
             // Data is already sorted by date ascending
             data.forEach(entry => {
                 const date = moment(entry.date);
-                const yearWeek = date.format('YYYY-WW');
+                const dayOfWeek = date.day(); // 0 = Sun, 6 = Sat
+
+                // Skip Saturday and Sunday for weekly delta calculation
+                if (dayOfWeek === 0 || dayOfWeek === 6) return;
+
+                const yearWeek = date.format('GGGG-WW');
 
                 if (!weeklyData[yearWeek]) {
                     weeklyData[yearWeek] = {
@@ -457,6 +462,7 @@
                                 day: 'MMM D'
                             }
                         },
+                        offset: true, /* Ensures first and last points aren't clipped */
                         title: {
                             display: true,
                             text: 'Date'
