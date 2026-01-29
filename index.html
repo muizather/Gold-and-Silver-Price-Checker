@@ -305,8 +305,11 @@
                 ctx.textBaseline = 'bottom';
                 ctx.font = 'bold 11px sans-serif';
 
-                deltas.forEach(d => {
-                    const xPos = x.getPixelForValue(new Date(d.endDate).getTime());
+                let previousDelta = null;
+
+                deltas.forEach((d, index) => {
+                    // Draw line on Monday (startDate)
+                    const xPos = x.getPixelForValue(new Date(d.startDate).getTime());
 
                     // Check if within visible range
                     if (xPos >= left && xPos <= right) {
@@ -324,14 +327,24 @@
                         const sign = d.delta > 0 ? '+' : '';
                         const text = `Δ ${sign}${Math.round(d.delta)}`;
 
-                        // Alternate height to avoid overlapping text if weeks are close
-                        // Use week number to alternate
-                        const isEvenWeek = parseInt(d.week.split('-')[1]) % 2 === 0;
-                        const yOffset = isEvenWeek ? 20 : 35;
+                        // Placement based on previous week's delta trend
+                        // If current delta > previous delta, show higher up. Else lower.
+                        // Default to high for the first item
+                        let yOffset = 20; // Default High
+
+                        if (previousDelta !== null) {
+                            if (d.delta > previousDelta) {
+                                yOffset = 20; // Higher position
+                            } else {
+                                yOffset = 45; // Lower position
+                            }
+                        }
 
                         ctx.fillStyle = d.delta >= 0 ? '#16a34a' : '#dc2626'; // Green-600 or Red-600
                         ctx.fillText(text, xPos, top + yOffset);
                     }
+
+                    previousDelta = d.delta;
                 });
 
                 ctx.restore();
