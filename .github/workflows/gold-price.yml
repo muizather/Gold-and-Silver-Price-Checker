@@ -2,10 +2,10 @@ name: Gold Price Updater
 
 on:
   schedule:
-    # Runs at 11:00 AM PKT (UTC+5) -> 06:00 UTC
-    - cron: '0 6 * * *'
-    # Runs at 4:00 PM PKT (UTC+5) -> 11:00 UTC
-    - cron: '0 11 * * *'
+    # Runs at 11:00 AM PKT (UTC+5) -> 06:00 UTC (Monday to Friday)
+    - cron: '0 6 * * 1-5'
+    # Runs at 4:00 PM PKT (UTC+5) -> 11:00 UTC (Monday to Friday)
+    - cron: '0 11 * * 1-5'
   workflow_dispatch: # Allows manual triggering from GitHub UI
 
 jobs:
@@ -30,8 +30,8 @@ jobs:
 
     - name: Check Environment Secrets
       run: |
-        if [ -z "${{ secrets.GOLDAPI_KEY }}" ] && [ -z "${{ secrets.GOLDAPI_KEYY }}" ]; then
-          echo "::error::No GOLDAPI_KEY or GOLDAPI_KEYY secrets found! This is likely because the 'Gold And Silver' Environment is restricted to specific branches (e.g., 'main') and this run is on a different branch."
+        if [ -z "${{ secrets.GOLDAPI_KEY }}" ] && [ -z "${{ secrets.GOLDAPI_KEYY }}" ] && [ -z "${{ secrets.GOLDAPI_KEY_SAAD }}" ]; then
+          echo "::error::No GOLDAPI_KEY, GOLDAPI_KEYY, or GOLDAPI_KEY_SAAD secrets found! This is likely because the 'Gold And Silver' Environment is restricted to specific branches (e.g., 'main') and this run is on a different branch."
           exit 1
         else
           echo "At least one API key is present."
@@ -41,6 +41,7 @@ jobs:
       env:
         GOLDAPI_KEY: ${{ secrets.GOLDAPI_KEY }}
         GOLDAPI_KEYY: ${{ secrets.GOLDAPI_KEYY }}
+        GOLDAPI_KEY_SAAD: ${{ secrets.GOLDAPI_KEY_SAAD }}
         GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
       run: node cron-job.js
 

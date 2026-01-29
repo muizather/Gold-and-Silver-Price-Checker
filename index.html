@@ -292,8 +292,90 @@
             });
         }
 
+        const weeklyDeltaPlugin = {
+            id: 'weeklyDelta',
+            afterDatasetsDraw(chart, args, options) {
+                const { ctx, chartArea: { top, bottom, left, right }, scales: { x } } = chart;
+                const deltas = options.deltas;
+
+                if (!deltas) return;
+
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.font = 'bold 11px sans-serif';
+
+                deltas.forEach(d => {
+                    const xPos = x.getPixelForValue(new Date(d.endDate).getTime());
+
+                    // Check if within visible range
+                    if (xPos >= left && xPos <= right) {
+                        // Draw vertical line
+                        ctx.beginPath();
+                        ctx.moveTo(xPos, top);
+                        ctx.lineTo(xPos, bottom);
+                        ctx.strokeStyle = 'rgba(156, 163, 175, 0.3)'; // Gray-400 with opacity
+                        ctx.setLineDash([5, 5]);
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        ctx.setLineDash([]); // Reset dash
+
+                        // Draw Delta Text
+                        const sign = d.delta > 0 ? '+' : '';
+                        const text = `Δ ${sign}${Math.round(d.delta)}`;
+
+                        // Alternate height to avoid overlapping text if weeks are close
+                        // Use week number to alternate
+                        const isEvenWeek = parseInt(d.week.split('-')[1]) % 2 === 0;
+                        const yOffset = isEvenWeek ? 20 : 35;
+
+                        ctx.fillStyle = d.delta >= 0 ? '#16a34a' : '#dc2626'; // Green-600 or Red-600
+                        ctx.fillText(text, xPos, top + yOffset);
+                    }
+                });
+
+                ctx.restore();
+            }
+        };
+
+        function calculateWeeklyDeltas(data, metalType) {
+            const weeklyData = {};
+
+            // Data is already sorted by date ascending
+            data.forEach(entry => {
+                const date = moment(entry.date);
+                const yearWeek = date.format('YYYY-WW');
+
+                if (!weeklyData[yearWeek]) {
+                    weeklyData[yearWeek] = {
+                        week: yearWeek,
+                        first: entry,
+                        last: entry
+                    };
+                } else {
+                    weeklyData[yearWeek].last = entry;
+                }
+            });
+
+            return Object.values(weeklyData).map(week => {
+                const firstPrice = week.first[metalType].perTola;
+                const lastPrice = week.last[metalType].perTola;
+                return {
+                    week: week.week,
+                    startDate: week.first.date,
+                    endDate: week.last.date,
+                    delta: lastPrice - firstPrice
+                };
+            });
+        }
+
         function renderGoldChart(data) {
             const ctx = document.getElementById('goldChart').getContext('2d');
+            const deltas = calculateWeeklyDeltas(data, 'gold');
+            const options = getChartOptions('Gold Price (PKR)');
+
+            // Inject plugin options
+            options.plugins.weeklyDelta = { deltas: deltas };
 
             new Chart(ctx, {
                 type: 'line',
@@ -308,12 +390,18 @@
                         tension: 0.3
                     }]
                 },
-                options: getChartOptions('Gold Price (PKR)')
+                options: options,
+                plugins: [weeklyDeltaPlugin]
             });
         }
 
         function renderSilverChart(data) {
             const ctx = document.getElementById('silverChart').getContext('2d');
+            const deltas = calculateWeeklyDeltas(data, 'silver');
+            const options = getChartOptions('Silver Price (PKR)');
+
+            // Inject plugin options
+            options.plugins.weeklyDelta = { deltas: deltas };
 
             new Chart(ctx, {
                 type: 'line',
@@ -328,7 +416,8 @@
                         tension: 0.3
                     }]
                 },
-                options: getChartOptions('Silver Price (PKR)')
+                options: options,
+                plugins: [weeklyDeltaPlugin]
             });
         }
 
