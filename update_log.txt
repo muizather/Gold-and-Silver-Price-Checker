@@ -213,3 +213,4 @@
 [2026-06-10T14:19:42.797Z] Updated prices - Gold: 435028.05 PKR/Tola, Silver: 6817.59 PKR/Tola
 [2026-06-11T10:14:40.471Z] Updated prices - Gold: 427279.69 PKR/Tola, Silver: 6684.57 PKR/Tola
 [2026-06-11T14:32:36.379Z] Updated prices - Gold: 425534.91 PKR/Tola, Silver: 6693.98 PKR/Tola
+[2026-06-12T10:02:28.107Z] Updated prices - Gold: 440684.72 PKR/Tola, Silver: 7017.66 PKR/Tola
