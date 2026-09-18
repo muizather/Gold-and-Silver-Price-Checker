@@ -88,6 +88,16 @@
             flex: 1; /* Chart takes all remaining space */
             min-width: 0; /* Prevents flex overflow issues */
             width: 100%;
+            overflow-x: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: #ffffff;
+        }
+
+        .chart-scroll-container {
+            height: 300px;
+            position: relative;
+            min-width: 100%;
         }
 
         .table-wrapper {
@@ -107,7 +117,7 @@
 
         canvas {
             width: 100% !important;
-            height: 300px !important;
+            height: 100% !important;
         }
 
         /* Table Styles */
@@ -159,8 +169,10 @@
         <div class="card">
             <h2>Gold Price History (Per Tola)</h2>
             <div class="chart-content">
-                <div class="chart-wrapper">
-                    <canvas id="goldChart"></canvas>
+                <div class="chart-wrapper" id="goldChartWrapper">
+                    <div class="chart-scroll-container" id="goldChartContainer">
+                        <canvas id="goldChart"></canvas>
+                    </div>
                 </div>
                 <div class="table-wrapper">
                     <table>
@@ -183,8 +195,10 @@
         <div class="card">
             <h2>Silver Price History (Per Tola)</h2>
             <div class="chart-content">
-                <div class="chart-wrapper">
-                    <canvas id="silverChart"></canvas>
+                <div class="chart-wrapper" id="silverChartWrapper">
+                    <div class="chart-scroll-container" id="silverChartContainer">
+                        <canvas id="silverChart"></canvas>
+                    </div>
                 </div>
                 <div class="table-wrapper">
                     <table>
@@ -387,7 +401,35 @@
             });
         }
 
+        function adjustChartContainerWidth(containerId, dataCount) {
+            const minWidthPerPoint = 28; // ~28px per data point for readable spacing
+            const calculatedWidth = dataCount * minWidthPerPoint;
+            const container = document.getElementById(containerId);
+            const parentWidth = container.parentElement.clientWidth;
+
+            container.style.width = `${Math.max(calculatedWidth, parentWidth)}px`;
+        }
+
+        function scrollToFarRight(wrapperId) {
+            const wrapper = document.getElementById(wrapperId);
+            if (wrapper) {
+                wrapper.scrollLeft = wrapper.scrollWidth;
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            const goldCanvas = document.getElementById('goldChart');
+            const silverCanvas = document.getElementById('silverChart');
+            if (goldCanvas && Chart.getChart(goldCanvas)) {
+                adjustChartContainerWidth('goldChartContainer', Chart.getChart(goldCanvas).data.datasets[0].data.length);
+            }
+            if (silverCanvas && Chart.getChart(silverCanvas)) {
+                adjustChartContainerWidth('silverChartContainer', Chart.getChart(silverCanvas).data.datasets[0].data.length);
+            }
+        });
+
         function renderGoldChart(data) {
+            adjustChartContainerWidth('goldChartContainer', data.length);
             const ctx = document.getElementById('goldChart').getContext('2d');
             const deltas = calculateWeeklyDeltas(data, 'gold');
             const options = getChartOptions('Gold Price (PKR)');
@@ -411,9 +453,15 @@
                 options: options,
                 plugins: [weeklyDeltaPlugin]
             });
+
+            // Scroll to the far right to show most recent data first
+            requestAnimationFrame(() => {
+                scrollToFarRight('goldChartWrapper');
+            });
         }
 
         function renderSilverChart(data) {
+            adjustChartContainerWidth('silverChartContainer', data.length);
             const ctx = document.getElementById('silverChart').getContext('2d');
             const deltas = calculateWeeklyDeltas(data, 'silver');
             const options = getChartOptions('Silver Price (PKR)');
@@ -436,6 +484,11 @@
                 },
                 options: options,
                 plugins: [weeklyDeltaPlugin]
+            });
+
+            // Scroll to the far right to show most recent data first
+            requestAnimationFrame(() => {
+                scrollToFarRight('silverChartWrapper');
             });
         }
 
